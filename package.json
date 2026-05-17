@@ -6,7 +6,9 @@
   "main": "cli.js",
   "scripts": {
     "start": "node cli.js",
-    "backtest": "node cli.js"
+    "backtest": "node cli.js",
+    "live": "node live-trader.js",
+    "live-dry": "node live-trader.js --dry-run"
   },
   "dependencies": {
     "csv-parse": "^5.6.0"

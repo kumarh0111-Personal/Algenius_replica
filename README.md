@@ -138,6 +138,67 @@ This reconstruction covers approximately 60% of the original TrendAura main proc
 
 The codebase uses native ES modules (`"type": "module"`) with no build step.
 
+## Live Trading (OANDA)
+
+The live trader runs any strategy on OANDA via cron. It tracks positions in a JSON state file, handles SL/TP/trailing stops, and enforces risk limits.
+
+### Setup
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Set OANDA credentials
+export OANDA_TOKEN="your-access-token"
+export OANDA_ACCOUNT_ID="101-001-2345678-001"
+export OANDA_ENV="practice"  # or "live"
+
+# 3. Dry-run to verify
+node live-trader.js --strategy smartSignals --instrument EUR_USD --granularity H1 --dry-run
+
+# 4. Run live
+node live-trader.js --strategy smartSignals --instrument EUR_USD --granularity H1
+```
+
+### Cron (Hetzner VPS)
+
+```bash
+# Every 15 minutes on weekdays (for H1 timeframe)
+*/15 * * * 1-5 cd /opt/trendaura-trader && \
+  node live-trader.js --strategy smartSignals \
+  --instrument EUR_USD --granularity H1 \
+  >> trading.log 2>&1
+```
+
+Or use the deploy script:
+
+```bash
+bash deploy.sh root@your-hetzner-vps-ip
+```
+
+### Risk Management
+
+| Parameter | Default | Description |
+|---|---|---|
+| `--size` | 0.02 (2%) | Position size as fraction of account |
+| Max daily loss | 5% | Stops trading when hit |
+| Max consecutive losses | 3 | Stops after 3 losers in a row |
+| SL | ATR × 2 | Dynamic stop from volatility |
+| TP | ATR × 3 | Take profit target |
+| Trailing stop | Activates at 0.5% profit | Trails by 0.3% |
+
+### Architecture
+
+```
+cron (every N min)
+  └→ live-trader.js
+       ├── OandaClient     — REST API (candles, orders, positions)
+       ├── TradingRunner   — Signal → Order pipeline
+       ├── TradeStore      — JSON file state persistence
+       └── Strategy (any)  — From src/strategies/ or built-in
+```
+
 ## Dependencies
 
 - `csv-parse` ^5.6.0 (CLI CSV parsing only)
+- No additional deps for live trading — uses native Node 18+ `fetch`
