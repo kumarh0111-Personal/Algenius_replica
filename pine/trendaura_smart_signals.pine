@@ -1,0 +1,60 @@
+//@version=5
+strategy("TrendAura - Smart Signals", overlay=true, initial_capital=100000, default_qty_type=strategy.percent_of_equity, default_qty_value=95)
+
+// === Factor 1: Ichimoku Cloud (25%) ===
+tenkan = (ta.highest(high, 9) + ta.lowest(low, 9)) / 2
+kijun = (ta.highest(high, 26) + ta.lowest(low, 26)) / 2
+spanA = math.avg(tenkan, kijun)
+spanB = (ta.highest(high, 52) + ta.lowest(low, 52)) / 2
+cloudBull = spanA > spanB
+factorCloud = cloudBull ? 1 : -1
+
+// === Factor 2: SuperTrend (25%) ===
+[st, stDir] = ta.supertrend(3, 10)
+factorST = stDir == 1 ? 1 : -1
+
+// === Factor 3: RSI Regime (20%) ===
+rsi = ta.rsi(close, 14)
+rsiSignal = rsi > 70 ? -1 : rsi < 30 ? 1 : rsi > 60 ? 0.5 : rsi < 40 ? -0.5 : 0
+
+// === Factor 4: Swing Structure (15%) ===
+// Simplified: compare current close to 10-bar swing low
+swingLow = ta.lowest(low, 10)
+factorStruct = close > swingLow ? 1 : -1
+
+// === Factor 5: EMA Alignment (15%) ===
+ema20 = ta.ema(close, 20)
+ema50 = ta.ema(close, 50)
+emaScore = (close > ema20 ? 1 : 0) + (close > ema50 ? 1 : 0) + (ema20 > ema50 ? 1 : 0)
+factorEMA = (emaScore / 3) * 2 - 1
+
+// === Weighted Confidence ===
+wCloud = 0.25, wST = 0.25, wRSI = 0.20, wStruct = 0.15, wEMA = 0.15
+totalW = wCloud + wST + wRSI + wStruct + wEMA
+confidence = (factorCloud * wCloud + factorST * wST + rsiSignal * wRSI + factorStruct * wStruct + factorEMA * wEMA) / totalW
+
+signal = confidence >= 0.6 ? "STRONG_BUY" : confidence >= 0.2 ? "BUY" : confidence <= -0.6 ? "STRONG_SELL" : confidence <= -0.2 ? "SELL" : "NEUTRAL"
+
+atrVal = ta.atr(14)
+
+buyNow = confidence >= 0.2
+sellNow = confidence <= -0.2
+
+// Only enter if we have a directional signal
+if buyNow
+    strategy.entry("SM Long", strategy.long)
+    strategy.exit("SM Exit", "SM Long", stop=close - atrVal * 2, limit=close + atrVal * 3)
+
+if sellNow
+    strategy.entry("SM Short", strategy.short)
+    strategy.exit("SM Exit", "SM Short", stop=close + atrVal * 2, limit=close - atrVal * 3)
+
+// Visual: confidence as overlay coloring
+bgcolor(confidence > 0.5 ? color.new(color.green, 92) : confidence < -0.5 ? color.new(color.red, 92) : na)
+
+// Debug plot
+hline(0.2, "Buy Threshold", color.gray, hline.style_dotted)
+hline(-0.2, "Sell Threshold", color.gray, hline.style_dotted)
+hline(0.6, "Strong Buy", color.green, hline.style_dotted)
+hline(-0.6, "Strong Sell", color.red, hline.style_dotted)
+plot(confidence, "Confidence", color=color.purple, linewidth=2)

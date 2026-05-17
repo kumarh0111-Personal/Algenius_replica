@@ -1,0 +1,51 @@
+//@version=5
+strategy("TrendAura - Donchian Breakout", overlay=true, initial_capital=100000, default_qty_type=strategy.percent_of_equity, default_qty_value=95)
+
+periodInput = input.int(20, "Donchian Period")
+strengthThresh = input.float(0.25, "Min Strength")
+
+donchianUpper = ta.highest(high, periodInput)
+donchianLower = ta.lowest(low, periodInput)
+prevUpper = ta.highest(high[periodInput], periodInput)
+prevLower = ta.lowest(low[periodInput], periodInput)
+
+channelWidth = prevUpper - prevLower
+atrVal = ta.atr(14)
+avgVol = ta.sma(volume, 20)
+bodySize = math.abs(close - open)
+avgBody = ta.sma(bodySize, periodInput)
+
+volSurge = volume > avgVol * 1.3
+bodyOk = bodySize > avgBody * 1.2
+rsi = ta.rsi(close, 14)
+channelOk = channelWidth > atrVal * 1.5
+
+// BUY: close breaks above previous upper band
+buyBreak = close > prevUpper and close[1] <= prevUpper
+strengthBuy = (volSurge ? 0.35 : 0) + (bodyOk ? 0.25 : 0) + (rsi > 50 ? 0.2 : 0) + (channelOk ? 0.2 : 0)
+buySignal = buyBreak and strengthBuy >= strengthThresh
+
+// SELL: close breaks below previous lower band 
+sellBreak = close < prevLower and close[1] >= prevLower
+strengthSell = (volSurge ? 0.35 : 0) + (bodyOk ? 0.25 : 0) + (rsi < 50 ? 0.2 : 0) + (channelOk ? 0.2 : 0)
+sellSignal = sellBreak and strengthSell >= strengthThresh
+
+plot(donchianUpper, "Upper", color.blue, 2)
+plot(donchianLower, "Lower", color.blue, 2)
+mid = (donchianUpper + donchianLower) / 2
+plot(mid, "Mid", color.blue, 1)
+
+if buySignal
+    strategy.entry("BO Long", strategy.long)
+    slPrice = math.min(low, prevLower) - atrVal * 1
+    tpPrice = close + (close - prevLower) * 1.5
+    strategy.exit("BO Exit", "BO Long", stop=slPrice, limit=tpPrice)
+
+if sellSignal
+    strategy.entry("BO Short", strategy.short)
+    slPrice = math.max(high, prevUpper) + atrVal * 1
+    tpPrice = close - (prevUpper - close) * 1.5
+    strategy.exit("BO Exit", "BO Short", stop=slPrice, limit=tpPrice)
+
+plotshape(buySignal, "Buy", shape.triangleup, location.belowbar, color.green, size=size.small)
+plotshape(sellSignal, "Sell", shape.triangledown, location.abovebar, color.red, size=size.small)

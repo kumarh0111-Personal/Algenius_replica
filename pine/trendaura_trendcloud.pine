@@ -1,0 +1,60 @@
+//@version=5
+strategy("TrendAura - Trend Cloud (Ichimoku)", overlay=true, initial_capital=100000, default_qty_type=strategy.percent_of_equity, default_qty_value=95)
+
+displacement = input.int(26, "Displacement")
+
+tenkan = (ta.highest(high, 9) + ta.lowest(low, 9)) / 2
+kijun = (ta.highest(high, 26) + ta.lowest(low, 26)) / 2
+senkouA = math.avg(tenkan, kijun)
+senkouB = (ta.highest(high, 52) + ta.lowest(low, 52)) / 2
+
+plot(tenkan, "Tenkan", color=color.blue)
+plot(kijun, "Kijun", color=color.red)
+plot(senkouA, "Span A", color=color.green, offset=displacement)
+plot(senkouB, "Span B", color=color.red, offset=displacement)
+fill(plot(senkouA, offset=displacement), plot(senkouB, offset=displacement), color=senkouA[displacement] > senkouB[displacement] ? color.new(color.green, 85) : color.new(color.red, 85))
+
+// Cloud values at current chart position (shifted 26 bars ahead)
+curSpanA = senkouA[displacement]
+curSpanB = senkouB[displacement]
+prevSpanA = senkouA[displacement + 1]
+prevSpanB = senkouB[displacement + 1]
+
+cloudTop = math.max(curSpanA, curSpanB)
+cloudBottom = math.min(curSpanA, curSpanB)
+prevCloudTop = math.max(prevSpanA, prevSpanB)
+prevCloudBottom = math.min(prevSpanA, prevSpanB)
+
+// Cloud twist (spanA crosses spanB)
+bullishCloud = curSpanA > curSpanB
+prevBullish = prevSpanA > prevSpanB
+cloudTwistBull = bullishCloud and not prevBullish
+cloudTwistBear = not bullishCloud and prevBullish
+
+// Kumo breakout (price breaks out of cloud)
+aboveCloud = close > cloudTop
+belowCloud = close < cloudBottom
+prevAboveCloud = close[1] > prevCloudTop
+prevBelowCloud = close[1] < prevCloudBottom
+kumoBreakoutBull = aboveCloud and not prevAboveCloud
+kumoBreakoutBear = belowCloud and not prevBelowCloud
+
+// TK cross (tenkan/kijun cross)
+tkCrossBull = ta.crossover(tenkan, kijun)
+tkCrossBear = ta.crossunder(tenkan, kijun)
+
+buySignal = cloudTwistBull or kumoBreakoutBull or (tkCrossBull and aboveCloud)
+sellSignal = cloudTwistBear or kumoBreakoutBear or (tkCrossBear and belowCloud)
+
+atrVal = ta.atr(14)
+
+if buySignal
+    strategy.entry("Cloud Long", strategy.long)
+    strategy.exit("Cloud Exit", "Cloud Long", stop=close - atrVal * 2, limit=close + atrVal * 3)
+
+if sellSignal
+    strategy.entry("Cloud Short", strategy.short)
+    strategy.exit("Cloud Exit", "Cloud Short", stop=close + atrVal * 2, limit=close - atrVal * 3)
+
+plotshape(buySignal, "Buy", shape.triangleup, location.belowbar, color.green, size=size.small)
+plotshape(sellSignal, "Sell", shape.triangledown, location.abovebar, color.red, size=size.small)

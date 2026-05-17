@@ -1,0 +1,20 @@
+//@version=5
+strategy("TrendAura - SuperTrend", overlay=true, initial_capital=100000, default_qty_type=strategy.percent_of_equity, default_qty_value=95)
+
+periodInput = input.int(10, "ATR Period")
+multiplierInput = input.float(3.0, "ATR Multiplier")
+
+[supertrend, direction] = ta.supertrend(multiplierInput, periodInput)
+
+plot(supertrend, "SuperTrend", color=color.new(color.purple, 0), linewidth=2)
+bgcolor(direction == 1 ? color.new(color.green, 90) : color.new(color.red, 90))
+
+if (direction == 1)  // uptrend → was in downtrend, now flipped to uptrend
+    strategy.entry("ST Long", strategy.long)
+if (direction == -1) // downtrend
+    strategy.entry("ST Short", strategy.short)
+
+// SL/TP using ATR
+atrVal = ta.atr(periodInput)
+strategy.exit("ST Exit", "ST Long", stop=strategy.position_avg_price - atrVal * 2, limit=strategy.position_avg_price + atrVal * 3)
+strategy.exit("ST Exit", "ST Short", stop=strategy.position_avg_price + atrVal * 2, limit=strategy.position_avg_price - atrVal * 3)

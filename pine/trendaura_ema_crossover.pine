@@ -1,0 +1,24 @@
+//@version=5
+strategy("TrendAura - EMA Crossover", overlay=true, initial_capital=100000, default_qty_type=strategy.percent_of_equity, default_qty_value=95)
+
+ema9 = ta.ema(close, 9)
+ema21 = ta.ema(close, 21)
+
+plot(ema9, "EMA 9", color=color.blue, linewidth=2)
+plot(ema21, "EMA 21", color=color.orange, linewidth=2)
+
+bullCross = ta.crossover(ema9, ema21)
+bearCross = ta.crossunder(ema9, ema21)
+
+atrVal = ta.atr(14)
+
+if bullCross
+    strategy.entry("EMA Long", strategy.long)
+    strategy.exit("EMA Exit", "EMA Long", stop=close - atrVal * 2, limit=close + atrVal * 3)
+
+if bearCross
+    strategy.entry("EMA Short", strategy.short)
+    strategy.exit("EMA Exit", "EMA Short", stop=close + atrVal * 2, limit=close - atrVal * 3)
+
+plotshape(bullCross, "Bull Cross", shape.triangleup, location.belowbar, color.green, size=size.small)
+plotshape(bearCross, "Bear Cross", shape.triangledown, location.abovebar, color.red, size=size.small)
