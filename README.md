@@ -160,28 +160,56 @@ node live-trader.js --strategy smartSignals --instrument EUR_USD --granularity H
 node live-trader.js --strategy smartSignals --instrument EUR_USD --granularity H1
 ```
 
+### Multi-Asset Batch Runner
+
+Run all profiles at once:
+
+```bash
+# Edit trading-profiles.js to add/remove instruments and strategies
+node batch-trader.js          # Run all profiles
+node batch-trader.js --dry-run   # Simulate all
+node batch-trader.js EUR_USD     # Run only EUR_USD profiles
+node batch-trader.js 0           # Run only profile index 0
+```
+
+**`trading-profiles.js`** — add as many combinations as you want:
+
+```js
+export const profiles = [
+  { strategy: 'smartSignals', instrument: 'EUR_USD', granularity: 'H1', size: 0.02 },
+  { strategy: 'breakout',     instrument: 'GBP_USD', granularity: 'H1', size: 0.015 },
+  { strategy: 'supertrend',   instrument: 'XAU_USD', granularity: 'H1', size: 0.01 },
+  { strategy: 'emaCrossover', instrument: 'USD_JPY', granularity: 'H1', size: 0.02 },
+  { strategy: 'trendCloud',   instrument: 'AUD_USD', granularity: 'H1', size: 0.015 },
+];
+```
+
+Each profile gets its own state file (`state_EUR_USD_H1_smartSignals.json`).
+
 ### Cron (Hetzner VPS)
 
 ```bash
-# Every 15 minutes on weekdays (for H1 timeframe)
-*/15 * * * 1-5 cd /opt/trendaura-trader && \
-  node live-trader.js --strategy smartSignals \
-  --instrument EUR_USD --granularity H1 \
-  >> trading.log 2>&1
+# Edit crontab
+crontab -e
+
+# Add: runs every 15 min weekdays, processes all profiles
+*/15 * * * 1-5 cd /opt/trendaura-trader && node batch-trader.js >> trading.log 2>&1
 ```
 
-Or use the deploy script:
+Or run different schedules per timeframe:
 
 ```bash
-bash deploy.sh root@your-hetzner-vps-ip
+# H1 profiles every 15 min, M15 profiles every 5 min
+*/15 * * * 1-5 cd /opt/trendaura-trader && node batch-trader.js >> trading.log 2>&1
+# 5 * * * 1-5 cd /opt/trendaura-trader && node live-trader.js --strategy breakout --instrument EUR_USD --granularity M15 >> trading.log 2>&1
 ```
 
-### Risk Management
+### Risk Management (per profile)
 
 | Parameter | Default | Description |
 |---|---|---|
-| `--size` | 0.02 (2%) | Position size as fraction of account |
-| Max daily loss | 5% | Stops trading when hit |
+| `size` | 0.02 (2%) | Position size as fraction of account |
+| Max daily loss | 5% | Stops trading when hit (per profile) |
 | Max consecutive losses | 3 | Stops after 3 losers in a row |
 | SL | ATR × 2 | Dynamic stop from volatility |
 | TP | ATR × 3 | Take profit target |
@@ -191,11 +219,13 @@ bash deploy.sh root@your-hetzner-vps-ip
 
 ```
 cron (every N min)
-  └→ live-trader.js
-       ├── OandaClient     — REST API (candles, orders, positions)
-       ├── TradingRunner   — Signal → Order pipeline
-       ├── TradeStore      — JSON file state persistence
-       └── Strategy (any)  — From src/strategies/ or built-in
+  └→ batch-trader.js
+       ├── trading-profiles.js  — Config: [strat, inst, tf, size, params]
+       └── for each profile:
+            ├── OandaClient     — REST API (candles, orders, positions)
+            ├── TradingRunner   — Signal → Order pipeline
+            ├── TradeStore      — JSON file per profile
+            └── Strategy (any)  — From src/strategies/ or built-in
 ```
 
 ## Dependencies
