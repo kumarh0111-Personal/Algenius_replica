@@ -167,7 +167,8 @@ Run all profiles at once:
 ```bash
 # Edit trading-profiles.js to add/remove instruments and strategies
 node batch-trader.js          # Run all profiles
-node batch-trader.js --dry-run   # Simulate all
+node batch-trader.js --dry-run   # Simulate all (safe, no orders placed)
+node batch-trader.js --dry-run --force  # Simulate even on the same candle
 node batch-trader.js EUR_USD     # Run only EUR_USD profiles
 node batch-trader.js 0           # Run only profile index 0
 ```
@@ -193,15 +194,15 @@ Each profile gets its own state file (`state_EUR_USD_H1_smartSignals.json`).
 crontab -e
 
 # Add: runs every 15 min weekdays, processes all profiles
-*/15 * * * 1-5 cd /opt/trendaura-trader && node batch-trader.js >> trading.log 2>&1
+*/15 * * * 1-5 cd /root/Algenius_replica && node batch-trader.js >> trading.log 2>&1
 ```
 
 Or run different schedules per timeframe:
 
 ```bash
 # H1 profiles every 15 min, M15 profiles every 5 min
-*/15 * * * 1-5 cd /opt/trendaura-trader && node batch-trader.js >> trading.log 2>&1
-# 5 * * * 1-5 cd /opt/trendaura-trader && node live-trader.js --strategy breakout --instrument EUR_USD --granularity M15 >> trading.log 2>&1
+*/15 * * * 1-5 cd /root/Algenius_replica && node batch-trader.js >> trading.log 2>&1
+# 5 * * * 1-5 cd /root/Algenius_replica && node live-trader.js --strategy breakout --instrument EUR_USD --granularity M15 >> trading.log 2>&1
 ```
 
 ### Risk Management (per profile)

@@ -56,6 +56,7 @@ export class OandaClient {
     this._accountId = accountId;
     this._baseUrl = BASE_URLS[environment] || BASE_URLS.practice;
     this._timeout = timeout;
+    this._instrumentPrecision = null;
   }
 
   get isConfigured() { return true; }
@@ -132,6 +133,27 @@ export class OandaClient {
     if (type) query.instruments = type;
     const data = await this._request('GET', `/v3/accounts/${this._accountId}/instruments`, null, query);
     return data.instruments || [];
+  }
+
+  async _ensureInstrumentPrecisionCache() {
+    if (this._instrumentPrecision) return;
+
+    const instruments = await this.getInstruments();
+    this._instrumentPrecision = new Map(
+      instruments.map(i => [i.name, Number.isInteger(i.displayPrecision) ? i.displayPrecision : null])
+    );
+  }
+
+  async _formatPriceForInstrument(instrument, price) {
+    if (price === undefined || price === null) return null;
+
+    await this._ensureInstrumentPrecisionCache();
+    const precision = this._instrumentPrecision?.get(instrument);
+    if (precision === undefined || precision === null) {
+      return String(price);
+    }
+
+    return Number(price).toFixed(precision);
   }
 
   // ─── Pricing ───
@@ -211,10 +233,16 @@ export class OandaClient {
     };
 
     if (opts.stopLossPrice) {
-      order.stopLossOnFill = { price: String(opts.stopLossPrice), timeInForce: 'GTC' };
+      order.stopLossOnFill = {
+        price: await this._formatPriceForInstrument(instrument, opts.stopLossPrice),
+        timeInForce: 'GTC'
+      };
     }
     if (opts.takeProfitPrice) {
-      order.takeProfitOnFill = { price: String(opts.takeProfitPrice), timeInForce: 'GTC' };
+      order.takeProfitOnFill = {
+        price: await this._formatPriceForInstrument(instrument, opts.takeProfitPrice),
+        timeInForce: 'GTC'
+      };
     }
 
     return await this._request('POST', `/v3/accounts/${this._accountId}/orders`, { order });
@@ -232,15 +260,21 @@ export class OandaClient {
       type: 'LIMIT',
       instrument,
       units: String(units),
-      price: String(price),
+      price: await this._formatPriceForInstrument(instrument, price),
       timeInForce: 'GTC'
     };
 
     if (opts.stopLossPrice) {
-      order.stopLossOnFill = { price: String(opts.stopLossPrice), timeInForce: 'GTC' };
+      order.stopLossOnFill = {
+        price: await this._formatPriceForInstrument(instrument, opts.stopLossPrice),
+        timeInForce: 'GTC'
+      };
     }
     if (opts.takeProfitPrice) {
-      order.takeProfitOnFill = { price: String(opts.takeProfitPrice), timeInForce: 'GTC' };
+      order.takeProfitOnFill = {
+        price: await this._formatPriceForInstrument(instrument, opts.takeProfitPrice),
+        timeInForce: 'GTC'
+      };
     }
 
     return await this._request('POST', `/v3/accounts/${this._accountId}/orders`, { order });
@@ -258,15 +292,21 @@ export class OandaClient {
       type: 'STOP',
       instrument,
       units: String(units),
-      price: String(price),
+      price: await this._formatPriceForInstrument(instrument, price),
       timeInForce: 'GTC'
     };
 
     if (opts.stopLossPrice) {
-      order.stopLossOnFill = { price: String(opts.stopLossPrice), timeInForce: 'GTC' };
+      order.stopLossOnFill = {
+        price: await this._formatPriceForInstrument(instrument, opts.stopLossPrice),
+        timeInForce: 'GTC'
+      };
     }
     if (opts.takeProfitPrice) {
-      order.takeProfitOnFill = { price: String(opts.takeProfitPrice), timeInForce: 'GTC' };
+      order.takeProfitOnFill = {
+        price: await this._formatPriceForInstrument(instrument, opts.takeProfitPrice),
+        timeInForce: 'GTC'
+      };
     }
 
     return await this._request('POST', `/v3/accounts/${this._accountId}/orders`, { order });
@@ -336,10 +376,20 @@ export class OandaClient {
   async modifyTrade(tradeId, opts = {}) {
     const body = {};
     if (opts.stopLoss !== undefined) {
-      body.stopLoss = { price: String(opts.stopLoss), timeInForce: 'GTC' };
+      body.stopLoss = {
+        price: opts.instrument
+          ? await this._formatPriceForInstrument(opts.instrument, opts.stopLoss)
+          : String(opts.stopLoss),
+        timeInForce: 'GTC'
+      };
     }
     if (opts.takeProfit !== undefined) {
-      body.takeProfit = { price: String(opts.takeProfit), timeInForce: 'GTC' };
+      body.takeProfit = {
+        price: opts.instrument
+          ? await this._formatPriceForInstrument(opts.instrument, opts.takeProfit)
+          : String(opts.takeProfit),
+        timeInForce: 'GTC'
+      };
     }
     if (opts.trailingStopDistance !== undefined) {
       body.trailingStopLoss = { distance: String(opts.trailingStopDistance), timeInForce: 'GTC' };

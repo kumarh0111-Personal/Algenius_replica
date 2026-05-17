@@ -7,6 +7,7 @@
  * Usage:
  *   node batch-trader.js                    # Run all profiles
  *   node batch-trader.js --dry-run          # Dry run all
+ *   node batch-trader.js --dry-run --force  # Dry run even on duplicate candle
  *   node batch-trader.js --profile 0        # Run only profile index 0
  *   node batch-trader.js --profile EUR_USD  # Run by instrument name
  */
@@ -17,6 +18,9 @@ import { OandaClient } from './src/oanda/oanda-client.js';
 import { TradingRunner } from './src/trading/trading-runner.js';
 import { TradeStore } from './src/trading/trade-store.js';
 import { profiles } from './trading-profiles.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -31,8 +35,11 @@ function validateEnv() {
 async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
+  const forceRun = args.includes('--force');
   const dryRunFlag = args.indexOf('--dry-run');
   if (dryRunFlag !== -1) args.splice(dryRunFlag, 1);
+  const forceFlag = args.indexOf('--force');
+  if (forceFlag !== -1) args.splice(forceFlag, 1);
 
   let filterProfile = null;
   if (args.length > 0 && args[0] !== '--dry-run') {
@@ -55,7 +62,7 @@ async function main() {
 
   console.log(`╔══════════════════════════════════════════════╗`);
   console.log(`║  TrendAura Batch Tracker`);
-  console.log(`║  Profiles: ${toRun.length} | ${dryRun ? 'DRY RUN' : 'LIVE'}`);
+  console.log(`║  Profiles: ${toRun.length} | ${dryRun ? 'DRY RUN' : 'LIVE'}${forceRun ? ' | FORCE' : ''}`);
   console.log(`╚══════════════════════════════════════════════╝\n`);
 
   const oanda = new OandaClient({ accessToken: env.token, accountId: env.accountId, environment: env.environment });
@@ -85,11 +92,21 @@ async function main() {
         strategyParams: profile.params || {},
         granularity: profile.granularity,
         tradeStore: store,
-        config: { positionSize: profile.size || 0.02, ...(dryRun ? { dryRun: true } : {}) }
+        config: { positionSize: profile.size || 0.02, ...(dryRun ? { dryRun: true } : {}), ...(forceRun ? { forceRun: true } : {}) }
       });
 
       const result = await runner.tick();
-      const icon = result.action === 'ENTRY' ? '✅' : result.action === 'MANAGED' ? '🔄' : result.action === 'HALTED' ? '⛔' : result.action === 'ERROR' ? '❌' : '◻';
+      const icon = result.action === 'ENTRY'
+        ? '✅'
+        : result.action === 'DRY_RUN'
+          ? '🧪'
+          : result.action === 'MANAGED'
+            ? '🔄'
+            : result.action === 'HALTED'
+              ? '⛔'
+              : result.action === 'ERROR'
+                ? '❌'
+                : '◻';
       console.log(`  ${icon} ${result.action}${result.error ? `: ${result.error}` : ''}`);
 
       const summary = store.getSummary();

@@ -26,6 +26,10 @@ import { OandaClient } from './src/oanda/oanda-client.js';
 import { TradingRunner } from './src/trading/trading-runner.js';
 import { TradeStore } from './src/trading/trade-store.js';
 
+// Auto-load .env if present
+import dotenv from 'dotenv';
+dotenv.config();
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const HELP = `

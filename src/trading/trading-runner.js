@@ -64,8 +64,8 @@ export class TradingRunner {
       const latest = candles[candles.length - 1];
       const latestTime = latest.date || latest.time || 0;
 
-      // Skip if we've already processed this candle
-      if (this._store.lastCandleTime && latestTime <= this._store.lastCandleTime) {
+      // Skip if we've already processed this candle (unless forceRun is enabled)
+      if (!this._config.forceRun && this._store.lastCandleTime && latestTime <= this._store.lastCandleTime) {
         return { action: 'SKIP_DUPLICATE', signal: null, position: this._store.position };
       }
       this._store.setLastCandleTime(latestTime);
@@ -101,7 +101,10 @@ export class TradingRunner {
 
       // 7. Execute signal
       if (signal.signal === 'BUY' || signal.signal === 'SELL') {
-        await this._executeSignal(signal, candles, accountInfo);
+        const execution = await this._executeSignal(signal, candles, accountInfo);
+        if (execution === 'DRY_RUN') {
+          return { action: 'DRY_RUN', signal, position: null };
+        }
         return { action: 'ENTRY', signal, position: this._store.position };
       }
 
@@ -168,6 +171,11 @@ export class TradingRunner {
 
     const oandaUnits = isBuy ? quantity : -quantity;
 
+    if (this._config.dryRun) {
+      console.log(`[DRY RUN] ${isBuy ? 'BUY' : 'SELL'} ${this._instrument}: ${quantity} units @ ${price} | SL: ${slPrice} TP: ${tpPrice} | ${signal.reason}`);
+      return 'DRY_RUN';
+    }
+
     try {
       const order = await this._oanda.placeMarketOrder(this._instrument, oandaUnits, {
         stopLossPrice: slPrice,
@@ -194,8 +202,10 @@ export class TradingRunner {
       });
 
       console.log(`[TRADE] ENTRY ${isBuy ? 'BUY' : 'SELL'} ${this._instrument}: ${quantity} units @ ${fillPrice} | SL: ${slPrice} TP: ${tpPrice} | ${signal.reason}`);
+      return 'ENTRY';
     } catch (err) {
       console.error(`[TRADE] ORDER FAILED: ${err.message}`);
+      return 'ERROR';
     }
   }
 
@@ -264,7 +274,7 @@ export class TradingRunner {
               t.direction === pos.direction
             );
             if (myTrade) {
-              await this._oanda.modifyTrade(myTrade.id, { stopLoss: newTrail });
+              await this._oanda.modifyTrade(myTrade.id, { stopLoss: newTrail, instrument: this._instrument });
               console.log(`[TRAIL] Updated SL to ${newTrail}`);
             }
           } catch {}
@@ -280,7 +290,7 @@ export class TradingRunner {
               t.direction === pos.direction
             );
             if (myTrade) {
-              await this._oanda.modifyTrade(myTrade.id, { stopLoss: newTrail });
+              await this._oanda.modifyTrade(myTrade.id, { stopLoss: newTrail, instrument: this._instrument });
               console.log(`[TRAIL] Updated SL to ${newTrail}`);
             }
           } catch {}

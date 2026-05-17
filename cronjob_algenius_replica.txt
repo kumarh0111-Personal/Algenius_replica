@@ -1,0 +1,1 @@
+*/15 * * * 1-5 cd /root/Algenius_replica && node batch-trader.js >> trading.log 2>&1
