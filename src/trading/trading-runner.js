@@ -288,9 +288,10 @@ export class TradingRunner {
       return;
     }
 
-    // Trailing stop
+    // Trailing stop — only activate on profitable moves, never on adverse moves
     const trailActivation = this._config.trailingActivation / 100;
-    if (Math.abs(currentPnlPct) > trailActivation) {
+    const inProfit = isLong ? currentPnlPct > trailActivation : currentPnlPct < -trailActivation;
+    if (inProfit) {
       const trailDist = this._config.trailingDistance / 100;
       if (isLong) {
         const newTrail = currentPrice * (1 - trailDist);

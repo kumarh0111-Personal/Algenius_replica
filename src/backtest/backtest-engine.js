@@ -203,8 +203,8 @@ export class BacktestEngine {
       // Use 14-period ATR for proper risk sizing instead of single-candle H-L
       const atrPeriod = params.atrPeriod || 14;
       const atr = calcATR(slice, atrPeriod);
-      const slMult = params.slMultiplier || 2;
-      const tpMult = params.tpMultiplier || 3;
+      const slMult = params.slMultiplier || 3;
+      const tpMult = params.tpMultiplier || 5;
 
       if (cur.trend === 'uptrend') {
         return {
