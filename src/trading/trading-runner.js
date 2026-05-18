@@ -86,6 +86,27 @@ export class TradingRunner {
         accountInfo = { balance: 10000, marginAvailable: 10000 };
       }
 
+      // Reconcile stale local positions against the broker before managing.
+      // This prevents ghost positions from blocking new signals after an order
+      // was cancelled/rejected by OANDA but still persisted locally.
+      if (this._store.position) {
+        try {
+          const openTrades = await this._oanda.getTrades();
+          const liveTrade = openTrades.find(trade =>
+            trade.instrument === this._instrument &&
+            trade.direction === this._store.position.direction
+          );
+
+          if (!liveTrade) {
+            console.log(`[SYNC] Clearing stale local position for ${this._instrument} — no matching OANDA trade`);
+            this._store.clearPosition();
+          } else if (!this._store.position.orderId) {
+            this._store.position.orderId = liveTrade.id;
+            this._store.save();
+          }
+        } catch {}
+      }
+
       // 5. Manage existing position (check SL/TP, trailing)
       if (this._store.position) {
         await this._managePosition(candles, accountInfo);

@@ -189,6 +189,39 @@ export class BacktestEngine {
     },
 
     /**
+     * SuperTrend continuation strategy.
+     * Enters with the active trend even when there is no fresh flip,
+     * which keeps trend-following metals active during persistent moves.
+     */
+    supertrendContinuation(slice, params = {}) {
+      if (slice.length < 20) return { signal: null };
+      const st = calcSupertrendSeries(slice, params.period || 10, params.multiplier || 3);
+      if (!st || st.length < 1) return { signal: null };
+
+      const cur = st[st.length - 1];
+      const last = slice[slice.length - 1];
+      const atr = Math.abs(last.high - last.low);
+
+      if (cur.trend === 'uptrend') {
+        return {
+          signal: 'BUY', entry: last.close,
+          sl: cur.basicBand || last.close - atr * 2,
+          tp: last.close + atr * 3,
+          reason: 'Supertrend continuation'
+        };
+      }
+      if (cur.trend === 'downtrend') {
+        return {
+          signal: 'SELL', entry: last.close,
+          sl: cur.basicBand || last.close + atr * 2,
+          tp: last.close - atr * 3,
+          reason: 'Supertrend continuation'
+        };
+      }
+      return { signal: null };
+    },
+
+    /**
      * Trend cloud bias change strategy.
      */
     trendCloud(slice) {

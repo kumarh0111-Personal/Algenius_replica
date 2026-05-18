@@ -13,8 +13,8 @@ export const profiles = [
   { strategy: 'emaCrossover', instrument: 'USD_CHF', granularity: 'H1', params: {}, size: 0.015 },
 
   // Metals
-  { strategy: 'supertrend', instrument: 'XAU_USD', granularity: 'H1', params: { period: 10, multiplier: 3 }, size: 0.01 },
-  { strategy: 'supertrend', instrument: 'XAG_USD', granularity: 'H1', params: { period: 10, multiplier: 3 }, size: 0.01 },
+  { strategy: 'supertrendContinuation', instrument: 'XAU_USD', granularity: 'H1', params: { period: 10, multiplier: 3 }, size: 0.01 },
+  { strategy: 'supertrendContinuation', instrument: 'XAG_USD', granularity: 'H1', params: { period: 10, multiplier: 3 }, size: 0.01 },
 
   // Indices
   { strategy: 'smartSignals', instrument: 'NAS100_USD', granularity: 'H1', params: {}, size: 0.01 },
