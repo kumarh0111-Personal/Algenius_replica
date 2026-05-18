@@ -9,6 +9,7 @@
 
 import { BacktestEngine } from '../backtest/backtest-engine.js';
 import { TradeStore } from './trade-store.js';
+import { notifyEntry, notifyClose } from '../telegram/notifier.js';
 
 /**
  * Default risk management parameters.
@@ -43,6 +44,7 @@ export class TradingRunner {
     this._oanda = oandaClient;
     this._instrument = instrument;
     this._strategy = strategy;
+    this._strategyName = typeof strategy === 'string' ? strategy : (strategy?.name || 'unknown');
     this._strategyParams = strategyParams;
     this._granularity = granularity;
     this._store = tradeStore;
@@ -194,6 +196,7 @@ export class TradingRunner {
 
     if (this._config.dryRun) {
       console.log(`[DRY RUN] ${isBuy ? 'BUY' : 'SELL'} ${this._instrument}: ${quantity} units @ ${price} | SL: ${slPrice} TP: ${tpPrice} | ${signal.reason}`);
+      notifyEntry({ instrument: this._instrument, direction: isBuy ? 'BUY' : 'SELL', price, units: quantity, sl: slPrice, tp: tpPrice, strategy: this._strategyName, dryRun: true }).catch(() => {});
       return 'DRY_RUN';
     }
 
@@ -229,6 +232,7 @@ export class TradingRunner {
       });
 
       console.log(`[TRADE] ENTRY ${isBuy ? 'BUY' : 'SELL'} ${this._instrument}: ${quantity} units @ ${fillPrice} | SL: ${slPrice} TP: ${tpPrice} | ${signal.reason}`);
+      notifyEntry({ instrument: this._instrument, direction: isBuy ? 'BUY' : 'SELL', price: fillPrice, units: quantity, sl: slPrice, tp: tpPrice, strategy: this._strategyName }).catch(() => {});
       return 'ENTRY';
     } catch (err) {
       console.error(`[TRADE] ORDER FAILED: ${err.message}`);
@@ -365,6 +369,7 @@ export class TradingRunner {
     this._store.clearPosition();
 
     console.log(`[TRADE] CLOSE ${this._instrument}: PnL ${trade.pnl.toFixed(2)} (${trade.pnlPct.toFixed(2)}%) — ${reason}`);
+    notifyClose({ instrument: this._instrument, direction: pos.direction, pnl: trade.pnl, pnlPct: trade.pnlPct, reason, strategy: this._strategyName }).catch(() => {});
   }
 
   _canTrade() {
