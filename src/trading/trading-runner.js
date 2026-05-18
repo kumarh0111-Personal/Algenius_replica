@@ -182,11 +182,17 @@ export class TradingRunner {
         takeProfitPrice: tpPrice
       });
 
-      const fillPrice = parseFloat(
-        order?.orderFillTransaction?.price ||
-        order?.orderFillTransaction?.accountBalance ||
-        order?.lastTransactionID || 0
-      ) || price;
+      const fillTx = order?.orderFillTransaction;
+      if (!fillTx) {
+        const cancelReason = order?.orderCancelTransaction?.reason;
+        const rejectReason = order?.orderRejectTransaction?.rejectReason || order?.orderRejectTransaction?.reason;
+        const orderReason = cancelReason || rejectReason || 'Order was accepted by API but not filled';
+        console.error(`[TRADE] ORDER NOT FILLED: ${orderReason}`);
+        return 'ERROR';
+      }
+
+      const fillPrice = parseFloat(fillTx.price || 0) || price;
+      const tradeId = fillTx.tradeOpened?.tradeID || fillTx.id || null;
 
       this._store.setPosition({
         instrument: this._instrument,
@@ -197,7 +203,7 @@ export class TradingRunner {
         tp: tpPrice,
         entryTime: new Date().toISOString(),
         reason: signal.reason || '',
-        orderId: order?.orderFillTransaction?.id || null,
+        orderId: tradeId,
         trailingStop: null
       });
 
