@@ -1,4 +1,4 @@
-import { calcEMASeries, calcSupertrendSeries, determineBias, getCloudValues } from '../indicators/index.js';
+import { calcATR, calcEMASeries, calcSupertrendSeries, determineBias, getCloudValues } from '../indicators/index.js';
 import { computeBreakoutSignal } from '../strategies/breakout-signal.js';
 import { computeSmartSignals } from '../strategies/smart-signals.js';
 import { computeTrendCloudSignal } from '../strategies/trend-cloud-signal.js';
@@ -200,21 +200,25 @@ export class BacktestEngine {
 
       const cur = st[st.length - 1];
       const last = slice[slice.length - 1];
-      const atr = Math.abs(last.high - last.low);
+      // Use 14-period ATR for proper risk sizing instead of single-candle H-L
+      const atrPeriod = params.atrPeriod || 14;
+      const atr = calcATR(slice, atrPeriod);
+      const slMult = params.slMultiplier || 2;
+      const tpMult = params.tpMultiplier || 3;
 
       if (cur.trend === 'uptrend') {
         return {
           signal: 'BUY', entry: last.close,
-          sl: cur.basicBand || last.close - atr * 2,
-          tp: last.close + atr * 3,
+          sl: last.close - atr * slMult,
+          tp: last.close + atr * tpMult,
           reason: 'Supertrend continuation'
         };
       }
       if (cur.trend === 'downtrend') {
         return {
           signal: 'SELL', entry: last.close,
-          sl: cur.basicBand || last.close + atr * 2,
-          tp: last.close - atr * 3,
+          sl: last.close + atr * slMult,
+          tp: last.close - atr * tpMult,
           reason: 'Supertrend continuation'
         };
       }
