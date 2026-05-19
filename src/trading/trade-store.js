@@ -16,6 +16,7 @@ const DEFAULT_STATE = {
   consecutiveLosses: 0,     // Consecutive losing trades
   currentDay: null,         // Current trading date (YYYY-MM-DD)
   lastCandleTime: null,     // Timestamp of last processed candle
+  cooldownUntil: null,      // Epoch ms — don't re-enter before this time
   totalTrades: 0,           // Lifetime trade count
   totalWins: 0,
   totalLosses: 0,
@@ -37,6 +38,7 @@ export class TradeStore {
   get consecutiveLosses() { return this._state.consecutiveLosses; }
   get currentDay() { return this._state.currentDay; }
   get lastCandleTime() { return this._state.lastCandleTime; }
+  get cooldownUntil() { return this._state.cooldownUntil; }
   get totalTrades() { return this._state.totalTrades; }
 
   setPosition(pos) {
@@ -44,8 +46,11 @@ export class TradeStore {
     this._save();
   }
 
-  clearPosition() {
+  clearPosition(cooldownUntil = null) {
     this._state.position = null;
+    if (cooldownUntil !== null) {
+      this._state.cooldownUntil = cooldownUntil;
+    }
     this._save();
   }
 

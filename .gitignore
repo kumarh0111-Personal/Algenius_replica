@@ -1,3 +1,13 @@
 node_modules/
 *.deobf.js
 test-data*.json
+
+# Local environment secrets
+.env
+
+# Runtime trader state files
+trade-state.json
+state_*.json
+
+# Runtime logs
+trading.log

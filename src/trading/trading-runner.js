@@ -215,8 +215,17 @@ export class TradingRunner {
         return 'ERROR';
       }
 
-      const fillPrice = parseFloat(fillTx.price || 0) || price;
-      const tradeId = fillTx.tradeOpened?.tradeID || fillTx.id || null;
+      const tradeId = fillTx.tradeOpened?.tradeID || null;
+      if (!tradeId) {
+        console.error(`[TRADE] ORDER NOT FILLED: orderFillTransaction has no tradeOpened.tradeID — order may have been rejected or immediately closed`);
+        return 'ERROR';
+      }
+
+      // Prefer tradeOpened.price (actual fill price for THIS trade) over the
+      // orderFillTransaction.price which may contain the transaction ID or an
+      // aggregated VWAP that doesn't reflect the single-unit fill correctly.
+      const rawFillPrice = parseFloat(fillTx.tradeOpened?.price || fillTx.fullVWAP || fillTx.price || 0);
+      const fillPrice = rawFillPrice > 0 ? rawFillPrice : price;
 
       this._store.setPosition({
         instrument: this._instrument,
@@ -367,9 +376,12 @@ export class TradingRunner {
     };
 
     this._store.addTrade(trade);
-    this._store.clearPosition();
+    // Cooldown — don't re-enter for N hours after any close (default 3 bars = 3h on H1)
+    const cooldownHours = this._config.cooldownHours ?? 3;
+    const cooldownUntil = Date.now() + cooldownHours * 3600 * 1000;
+    this._store.clearPosition(cooldownUntil);
 
-    console.log(`[TRADE] CLOSE ${this._instrument}: PnL ${trade.pnl.toFixed(2)} (${trade.pnlPct.toFixed(2)}%) — ${reason}`);
+    console.log(`[TRADE] CLOSE ${this._instrument}: PnL ${trade.pnl.toFixed(2)} (${trade.pnlPct.toFixed(2)}%) — ${reason} | Cooldown: ${cooldownHours}h`);
     notifyClose({ instrument: this._instrument, direction: pos.direction, pnl: trade.pnl, pnlPct: trade.pnlPct, reason, strategy: this._strategyName }).catch(() => {});
   }
 
@@ -380,6 +392,12 @@ export class TradingRunner {
     }
     if (this._config.maxConsecutiveLosses && this._store.consecutiveLosses >= this._config.maxConsecutiveLosses) {
       console.log(`[RISK] Max consecutive losses (${this._store.consecutiveLosses}) — halted`);
+      return false;
+    }
+    // Post-trade cooldown
+    if (this._store.cooldownUntil && Date.now() < this._store.cooldownUntil) {
+      const remaining = Math.ceil((this._store.cooldownUntil - Date.now()) / 3600000);
+      console.log(`[COOLDOWN] ${this._instrument} — ${remaining}h remaining before re-entry`);
       return false;
     }
     return true;

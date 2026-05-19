@@ -141,15 +141,14 @@ export class BacktestEngine {
       const cur21 = ema21[ema21.length - 1];
       const last = slice[slice.length - 1];
 
+      const atr = calcATR(slice, 14);
       if (prev9 <= prev21 && cur9 > cur21) {
-        const atr = Math.abs(last.high - last.low);
         return {
           signal: 'BUY', entry: last.close,
           sl: last.close - atr * 2, tp: last.close + atr * 3, reason: 'EMA 9/21 bullish cross'
         };
       }
       if (prev9 >= prev21 && cur9 < cur21) {
-        const atr = Math.abs(last.high - last.low);
         return {
           signal: 'SELL', entry: last.close,
           sl: last.close + atr * 2, tp: last.close - atr * 3, reason: 'EMA 9/21 bearish cross'
@@ -169,7 +168,7 @@ export class BacktestEngine {
       const prev = st[st.length - 2];
       const cur = st[st.length - 1];
       const last = slice[slice.length - 1];
-      const atr = Math.abs(last.high - last.low);
+      const atr = calcATR(slice, 14);
 
       if (prev.trend !== 'uptrend' && cur.trend === 'uptrend') {
         return {
@@ -238,7 +237,7 @@ export class BacktestEngine {
         const curBias = determineBias(spanA[i], spanB[i]);
         const prevBias = determineBias(spanA[i - 1], spanB[i - 1]);
         const last = slice[slice.length - 1];
-        const atr = Math.abs(last.high - last.low);
+        const atr = calcATR(slice, 14);
 
         if (curBias === 'BULLISH' && prevBias !== 'BULLISH') {
           return {
@@ -283,7 +282,7 @@ export class BacktestEngine {
       if (slice.length < 80) return { signal: null };
       const result = computeSmartSignals(slice);
       const last = slice[slice.length - 1];
-      const atr = Math.abs(last.high - last.low);
+      const atr = calcATR(slice, 14);
 
       if (result.signal === 'STRONG_BUY') {
         return {

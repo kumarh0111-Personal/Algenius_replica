@@ -11,7 +11,8 @@
     "live-dry": "node live-trader.js --dry-run"
   },
   "dependencies": {
-    "csv-parse": "^5.6.0"
+    "csv-parse": "^5.6.0",
+    "dotenv": "^17.4.2"
   },
   "engines": {
     "node": ">=18.0.0"
