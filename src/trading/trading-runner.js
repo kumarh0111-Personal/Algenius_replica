@@ -100,8 +100,20 @@ export class TradingRunner {
           );
 
           if (!liveTrade) {
-            console.log(`[SYNC] Clearing stale local position for ${this._instrument} — no matching OANDA trade`);
-            this._store.clearPosition();
+            // If the position had a real entry time, the broker closed it (SL/TP hit) —
+            // apply cooldown before allowing re-entry.
+            // If there was no entry time, it was a ghost/rejected order — clear silently.
+            const wasRealTrade = !!this._store.position.entryTime;
+            if (wasRealTrade) {
+              const cooldownHours = this._config.cooldownHours ?? 3;
+              const cooldownUntil = Date.now() + cooldownHours * 3600 * 1000;
+              console.log(`[SYNC] ${this._instrument} — broker closed position (SL/TP hit), cooldown ${cooldownHours}h`);
+              this._store.clearPosition(cooldownUntil);
+              return { action: 'MANAGED', signal: null, position: null };
+            } else {
+              console.log(`[SYNC] Clearing ghost position for ${this._instrument} — order was never filled`);
+              this._store.clearPosition();
+            }
           } else if (!this._store.position.orderId) {
             this._store.position.orderId = liveTrade.id;
             this._store.save();
