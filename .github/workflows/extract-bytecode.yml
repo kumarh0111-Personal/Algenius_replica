@@ -1,0 +1,43 @@
+name: Extract Deobfuscated Source from .jsc Bytecode
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ bytecode-extract ]
+
+jobs:
+  extract:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Electron 28 and bytenode
+        run: |
+          npm install electron@28 --platform=win32
+          npm install bytenode
+
+      - name: Extract bytecode source
+        shell: pwsh
+        run: |
+          $env:ELECTRON_RUN_AS_NODE = "1"
+          & "node_modules/.bin/electron" scripts/extract-bytecode.cjs
+        working-directory: ${{ github.workspace }}
+
+      - name: Show results summary
+        run: |
+          Get-ChildItem -Path extracted-source -Recurse -File | Select-Object Name, Length
+        working-directory: ${{ github.workspace }}
+
+      - name: Upload extracted source artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: extracted-bytecode
+          path: extracted-source/
+          retention-days: 30
