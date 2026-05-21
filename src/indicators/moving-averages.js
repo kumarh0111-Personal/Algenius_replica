@@ -216,22 +216,24 @@ function calcPrevDonchian(candles, period = 20) {
  * @param {Array<{close: number}>} candles
  * @param {number} [period=20]
  * @param {number} [stdDev=2]
- * @returns {{ upper: number|null, middle: number|null, lower: number|null }}
+ * @returns {{ upper: number|null, basis: number|null, lower: number|null }}
  */
 function calcBollingerBands(candles, period = 20, stdDev = 2) {
-  if (!candles || candles.length < period) return { upper: null, middle: null, lower: null };
-  const closes = candles.map(c => c.close);
-  const middle = calcSMA(closes, period);
-  if (middle === null) return { upper: null, middle: null, lower: null };
+  if (!candles || candles.length < period) return { upper: null, basis: null, lower: null };
+  const closes = candles[0] && typeof candles[0] === 'object' && 'close' in candles[0]
+    ? candles.map(c => c.close)
+    : candles;
+  const basis = calcSMA(closes, period);
+  if (basis === null) return { upper: null, basis: null, lower: null };
 
   const slice = closes.slice(closes.length - period);
-  const variance = slice.reduce((sum, v) => sum + (v - middle) ** 2, 0) / period;
+  const variance = slice.reduce((sum, v) => sum + (v - basis) ** 2, 0) / period;
   const sd = Math.sqrt(variance);
 
   return {
-    upper: middle + stdDev * sd,
-    middle,
-    lower: middle - stdDev * sd,
+    upper: basis + stdDev * sd,
+    basis,
+    lower: basis - stdDev * sd,
   };
 }
 
