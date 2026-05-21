@@ -13,15 +13,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js 18
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
-      - name: Install Electron 28 and bytenode
+      - name: Install Electron 32.3.3 and bytenode
         run: |
-          npm install electron@28 --platform=win32
+          npm install electron@32.3.3 --platform=win32
           npm install bytenode
+        working-directory: ${{ github.workspace }}
+
+      - name: Print runtime info
+        shell: pwsh
+        run: |
+          $env:ELECTRON_RUN_AS_NODE = "1"
+          & "node_modules/.bin/electron" -e "console.log('Electron Node:', process.version); console.log('V8:', process.versions.v8); console.log('Arch:', process.arch); console.log('Platform:', process.platform)"
+        working-directory: ${{ github.workspace }}
 
       - name: Extract bytecode source
         shell: pwsh
@@ -31,13 +39,26 @@ jobs:
         working-directory: ${{ github.workspace }}
 
       - name: Show results summary
+        shell: pwsh
         run: |
-          Get-ChildItem -Path extracted-source -Recurse -File | Select-Object Name, Length
+          if (Test-Path extracted-source) {
+            Get-ChildItem -Path extracted-source -Recurse -File | Select-Object Name, Length
+          } else {
+            Write-Host "No extracted-source directory found"
+          }
         working-directory: ${{ github.workspace }}
 
       - name: Upload extracted source artifacts
         uses: actions/upload-artifact@v4
         with:
           name: extracted-bytecode
+          path: extracted-source/
+          retention-days: 30
+
+      - name: Upload full workflow logs (if failed)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bytecode-extraction-logs
           path: extracted-source/
           retention-days: 30
