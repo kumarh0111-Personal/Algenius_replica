@@ -6,20 +6,48 @@ process.stdout.write('Node: ' + process.version + '\n');
 process.stdout.write('V8: ' + process.versions.v8 + '\n');
 process.stdout.write('Platform: ' + process.platform + '\n\n');
 
-// Load bytenode
-try {
-  require('bytenode');
-  process.stdout.write('bytenode loaded successfully\n\n');
-} catch(e) {
-  process.stdout.write('Failed to load bytenode: ' + e.message + '\n');
-  process.exit(1);
-}
+require('bytenode');
+process.stdout.write('bytenode loaded successfully\n\n');
 
 const jscBase = path.join(__dirname, '..', 'jsc', 'original');
 const outputBase = path.join(__dirname, '..', 'extracted-source');
 
-process.stdout.write('JSC base: ' + jscBase + '\n');
-process.stdout.write('Output: ' + outputBase + '\n\n');
+// Create stub dependencies so .jsc modules that require neighbors can load
+function ensureStubs() {
+  const stubs = {
+    '../trading212/t212-client.cjs': 'module.exports = {};\n',
+    '../trading212/t212-client.js': 'module.exports = {};\n',
+    '../alpaca/alpaca-client.cjs': 'module.exports = {};\n',
+    '../alpaca/alpaca-client.js': 'module.exports = {};\n',
+    '../oanda/oanda-client.cjs': 'module.exports = {};\n',
+    '../oanda/oanda-client.js': 'module.exports = {};\n',
+    '../store/trade-store.cjs': 'module.exports = { getState: ()=>null, saveState: ()=>{} };\n',
+    '../store/trade-store.js': 'module.exports = { getState: ()=>null, saveState: ()=>{} };\n',
+    '../telegram/telegram.cjs': 'module.exports = { send: ()=>{} };\n',
+    '../telegram/telegram.js': 'module.exports = { send: ()=>{} };\n',
+    '../notifications/notifications.cjs': 'module.exports = { notify: ()=>{} };\n',
+    '../notifications/notifications.js': 'module.exports = { notify: ()=>{} };\n',
+    '../fyers/fyers-client.cjs': 'module.exports = {};\n',
+    '../fyers/fyers-client.js': 'module.exports = {};\n',
+  };
+  // Stubs must be placed so that require() from autotrader/*.jsc resolves correctly
+  // autotrader/auto-trader.jsc does require('../trading212/t212-client.cjs')
+  // which resolves from jsc/original/autotrader/ -> jsc/original/trading212/t212-client.cjs
+  const stubsDir = jscBase; // jsc/original/ — modules in subdirs use ../ to reach here
+  for (const [relPath, content] of Object.entries(stubs)) {
+    // '../trading212/t212-client.cjs' -> 'trading212/t212-client.cjs'
+    const cleanPath = relPath.replace(/^\.\.\//, '');
+    const fullPath = path.resolve(stubsDir, cleanPath);
+    const dir = path.dirname(fullPath);
+    fs.mkdirSync(dir, { recursive: true });
+    if (!fs.existsSync(fullPath)) {
+      fs.writeFileSync(fullPath, content);
+      process.stdout.write('  stub: ' + path.relative(stubsDir, fullPath) + '\n');
+    }
+  }
+  process.stdout.write('Stub dependencies created\n\n');
+}
+ensureStubs();
 
 // Collect all .jsc files recursively
 function collectFiles(dir, results = [], prefix = '') {
@@ -38,7 +66,7 @@ function collectFiles(dir, results = [], prefix = '') {
 const files = collectFiles(jscBase);
 process.stdout.write('Found ' + files.length + ' .jsc files\n\n');
 
-// Generate test candles
+// Generate test data variants
 function generateCandles(count) {
   const candles = [];
   for (let i = 0; i < count; i++) {
@@ -55,38 +83,155 @@ function generateCandles(count) {
   return candles;
 }
 
+function closes(candles) { return candles.map(c => c.c); }
+function highs(candles) { return candles.map(c => c.h); }
+function lows(candles) { return candles.map(c => c.l); }
+function hl2(candles) { return candles.map(c => (c.h + c.l) / 2); }
+function ohlc4(candles) { return candles.map(c => (c.o + c.h + c.l + c.c) / 4); }
+
 const testCandles = generateCandles(300);
 const shortCandles = generateCandles(60);
+const testCloses = closes(testCandles);
+const shortCloses = closes(shortCandles);
+const testHL2 = hl2(testCandles);
+const shortHL2 = hl2(shortCandles);
+const testOHLC4 = ohlc4(testCandles);
 
-// Guess function signatures and try calling them
+// Known indicator function patterns: try with prices arrays
 function tryCallFunction(fn, name, modulePath) {
   const results = [];
 
-  // determineBias likely takes spanA, spanB as numbers
-  if (name === 'determineBias') {
-    try { results.push({ args: '(0.5, 0.3)', result: fn(0.5, 0.3) }); } catch(e) { results.push({ args: '(0.5, 0.3)', error: e.message }); }
-    try { results.push({ args: '(0.3, 0.5)', result: fn(0.3, 0.5) }); } catch(e) { results.push({ args: '(0.3, 0.5)', error: e.message }); }
+  // Constants object
+  if (typeof fn !== 'function') return results;
+
+  // BacktestEngine: try with new and params
+  if (name === 'BacktestEngine') {
+    try {
+      const instance = new fn({ capital: 10000 });
+      const keys = Object.getOwnPropertyNames(Object.getPrototypeOf(instance));
+      results.push({ args: '(new {capital:10000})', instanceType: typeof instance, methods: keys });
+    } catch(e) { results.push({ args: '(new)', error: e.message }); }
+    try {
+      const r = fn({ capital: 10000 });
+      results.push({ args: '({capital:10000})', result: typeof r });
+    } catch(e) { results.push({ args: '({capital:10000})', error: e.message }); }
     return results;
   }
 
-  // getCloudValues likely takes candles array
+  // AutoTrader: try with new 
+  if (name === 'AutoTrader' || name === 'autoTrader') {
+    try {
+      const instance = new fn({});
+      results.push({ args: '(new {})', instanceType: typeof instance });
+    } catch(e) { results.push({ args: '(new {})', error: e.message }); }
+    return results;
+  }
+
+  // determineBias — original is length=1, takes candles (spanA,spanB internally)
+  if (name === 'determineBias') {
+    // Maybe it takes a cloud values object
+    try { results.push({ args: '(candles)', result: fn(testCandles) }); } catch(e) { results.push({ args: '(candles)', error: e.message }); }
+    try { results.push({ args: '(closes)', result: fn(testCloses) }); } catch(e) { results.push({ args: '(closes)', error: e.message }); }
+    try { results.push({ args: '({spanA: 0.5, spanB: 0.3})', result: fn({spanA: 0.5, spanB: 0.3}) }); } catch(e) { results.push({ args: '({spanA,spanB})', error: e.message }); }
+    return results;
+  }
+
+  // getCloudValues
   if (name === 'getCloudValues') {
     try {
       const r = fn(testCandles);
-      results.push({ args: '(candles[300])', resultType: typeof r, keys: r ? Object.keys(r) : null });
+      const info = { resultType: typeof r };
+      if (r) {
+        if (Array.isArray(r)) info.arrayLength = r.length;
+        else info.keys = Object.keys(r);
+        info.sample = JSON.stringify(r[0] || r).slice(0, 200);
+      }
+      results.push({ args: '(candles[300])', ...info });
     } catch(e) { results.push({ args: '(candles[300])', error: e.message }); }
+    try {
+      const r = fn(testCloses);
+      const info = { resultType: typeof r };
+      if (r) {
+        if (Array.isArray(r)) info.arrayLength = r.length;
+        else info.keys = Object.keys(r);
+        info.sample = JSON.stringify(r[0] || r).slice(0, 200);
+      }
+      results.push({ args: '(closes[300])', ...info });
+    } catch(e) { results.push({ args: '(closes[300])', error: e.message }); }
     return results;
   }
 
-  // CLOUD_PERIOD, DONCHIAN_PERIOD etc are constants
-  // (handled by the main loop)
+  // calcSMA, calcEMA, calcWMA, calcATR — need (closes, period)
+  if (/^calc(SMA|EMA|WMA|ATR)$/.test(name)) {
+    try { results.push({ args: '(closes, 14)', result: fn(testCloses, 14) }); } catch(e) { results.push({ args: '(closes, 14)', error: e.message }); }
+    try { results.push({ args: '(closes, 20)', result: fn(testCloses, 20) }); } catch(e) { results.push({ args: '(closes, 20)', error: e.message }); }
+    try { results.push({ args: '(candles, 14)', result: fn(testCandles, 14) }); } catch(e) { results.push({ args: '(candles, 14)', error: e.message }); }
+    return results;
+  }
 
-  // Strategy functions: computeXxxSignal(candles, params?)
-  if (name.startsWith('compute') || name.startsWith('get')) {
+  // calcRSI — takes (closes, period?) — length=1 in original
+  if (name === 'calcRSI') {
+    try { results.push({ args: '(closes)', result: fn(testCloses) }); } catch(e) { results.push({ args: '(closes)', error: e.message }); }
+    try { results.push({ args: '(closes, 14)', result: fn(testCloses, 14) }); } catch(e) { results.push({ args: '(closes, 14)', error: e.message }); }
+    try { results.push({ args: '(candles)', result: fn(testCandles) }); } catch(e) { results.push({ args: '(candles)', error: e.message }); }
+    return results;
+  }
+
+  // calcSMASeries, calcEMASeries, calcWMASeries, calcATRSeries — (closes, period)
+  if (/^calc(SMA|EMA|WMA|ATR)Series$/.test(name)) {
+    try { results.push({ args: '(closes, 14)', result: fn(testCloses, 14).slice(0, 5) + '...' }); } catch(e) { results.push({ args: '(closes, 14)', error: e.message }); }
+    try { results.push({ args: '(closes, 20)', result: fn(testCloses, 20).slice(0, 5) + '...' }); } catch(e) { results.push({ args: '(closes, 20)', error: e.message }); }
+    return results;
+  }
+
+  // calcDonchian, calcPrevDonchian — (closes, period) or (highs, lows, period)
+  if (/^calc(Prev)?Donchian$/.test(name)) {
+    try { results.push({ args: '(closes, 20)', result: fn(testCloses, 20) }); } catch(e) { results.push({ args: '(closes, 20)', error: e.message }); }
+    try { results.push({ args: '(highs, lows, 20)', result: fn(highs(testCandles), lows(testCandles), 20) }); } catch(e) { results.push({ args: '(highs, lows, 20)', error: e.message }); }
+    try { results.push({ args: '(candles, 20)', result: fn(testCandles, 20) }); } catch(e) { results.push({ args: '(candles, 20)', error: e.message }); }
+    return results;
+  }
+
+  // calcBollingerBands — (closes, period, stddev)
+  if (name === 'calcBollingerBands') {
+    try { results.push({ args: '(closes, 20, 2)', result: fn(testCloses, 20, 2) }); } catch(e) { results.push({ args: '(closes, 20, 2)', error: e.message }); }
+    try { results.push({ args: '(candles, 20, 2)', result: fn(testCandles, 20, 2) }); } catch(e) { results.push({ args: '(candles, 20, 2)', error: e.message }); }
+    return results;
+  }
+
+  // calcSupertrend — (candles, atrPeriod, multiplier)
+  if (name === 'calcSupertrend') {
+    try { results.push({ args: '(candles, 10, 3)', result: fn(testCandles, 10, 3) }); } catch(e) { results.push({ args: '(candles, 10, 3)', error: e.message }); }
+    try { results.push({ args: '(closes, 10, 3)', result: fn(testCloses, 10, 3) }); } catch(e) { results.push({ args: '(closes, 10, 3)', error: e.message }); }
+    try { results.push({ args: '(hl2, 10, 3)', result: fn(testHL2, 10, 3) }); } catch(e) { results.push({ args: '(hl2, 10, 3)', error: e.message }); }
+    try { results.push({ args: '(candles)', result: fn(testCandles) }); } catch(e) { results.push({ args: '(candles)', error: e.message }); }
+    return results;
+  }
+
+  // calcSupertrendSeries — (candles, atrPeriod, multiplier)
+  if (name === 'calcSupertrendSeries') {
+    try { const r = fn(testCandles, 10, 3); results.push({ args: '(candles, 10, 3)', sample: JSON.stringify(r[300]) }); } catch(e) { results.push({ args: '(candles, 10, 3)', error: e.message }); }
+    try { const r = fn(testCloses, 10, 3); results.push({ args: '(closes, 10, 3)', sample: JSON.stringify(r[300]) }); } catch(e) { results.push({ args: '(closes, 10, 3)', error: e.message }); }
+    return results;
+  }
+
+  // detectSwingPoints — (closes, window) or (candles, window)
+  if (name === 'detectSwingPoints') {
+    try { results.push({ args: '(closes, 5)', result: fn(testCloses, 5).slice(0, 5) }); } catch(e) { results.push({ args: '(closes, 5)', error: e.message }); }
+    try { results.push({ args: '(candles, 5)', result: fn(testCandles, 5).slice(0, 5) }); } catch(e) { results.push({ args: '(candles, 5)', error: e.message }); }
+    try { results.push({ args: '(hl2, 5)', result: fn(testHL2, 5).slice(0, 5) }); } catch(e) { results.push({ args: '(hl2, 5)', error: e.message }); }
+    try { results.push({ args: '(candles)', result: fn(testCandles).slice(0, 5) }); } catch(e) { results.push({ args: '(candles)', error: e.message }); }
+    return results;
+  }
+
+  // computePivotMatrix, computeWavePivotScanner — (candles, params?)
+  if (/^compute|^scan|^get[A-Z]/.test(name)) {
     const variants = [
       { args: '(candles[300])', call: () => fn(testCandles) },
       { args: '(candles[300], {})', call: () => fn(testCandles, {}) },
-      { args: '(candles[60], {})', call: () => fn(shortCandles, {}) },
+      { args: '(closes[300])', call: () => fn(testCloses) },
+      { args: '(hl2[300])', call: () => fn(testHL2) },
+      { args: '(ohlc4[300])', call: () => fn(testOHLC4) },
     ];
     for (const v of variants) {
       try { results.push({ args: v.args, result: v.call() }); } catch(e) { results.push({ args: v.args, error: e.message }); }
@@ -94,9 +239,31 @@ function tryCallFunction(fn, name, modulePath) {
     return results;
   }
 
-  // Generic: try with candles
-  try { results.push({ args: '(candles)', result: fn(testCandles) }); } catch(e) {
-    try { results.push({ args: '()', result: fn() }); } catch(e2) { results.push({ args: '()', error: e2.message }); }
+  // computeEdgeData — (candles, params)
+  if (name === 'computeEdgeData') {
+    const variants = [
+      { args: '(candles[300], {})', call: () => fn(testCandles, {}) },
+      { args: '(closes[300], {})', call: () => fn(testCloses, {}) },
+      { args: '([], {capital:10000})', call: () => fn([], {capital:10000}) },
+    ];
+    for (const v of variants) {
+      try { results.push({ args: v.args, result: v.call() }); } catch(e) { results.push({ args: v.args, error: e.message }); }
+    }
+    return results;
+  }
+
+  // Generic: try with closes, candles, hl2
+  const genericVariants = [
+    { args: '(closes)', call: () => fn(testCloses) },
+    { args: '(candles)', call: () => fn(testCandles) },
+    { args: '(hl2)', call: () => fn(testHL2) },
+  ];
+  let anySuccess = false;
+  for (const v of genericVariants) {
+    try { results.push({ args: v.args, result: v.call() }); anySuccess = true; break; } catch(e) { /* continue */ }
+  }
+  if (!anySuccess) {
+    try { results.push({ args: '()', result: fn() }); } catch(e) { results.push({ args: '()', error: e.message }); }
   }
   return results;
 }
@@ -125,7 +292,6 @@ for (const { fullPath, relPath } of files) {
         const callResults = tryCallFunction(val, key, relPath);
         if (callResults.length > 0) entry.calls = callResults;
 
-        // Try to stringify the function
         try {
           const src = val.toString();
           entry.sourceLength = src.length;
@@ -153,3 +319,8 @@ for (const { fullPath, relPath } of files) {
 }
 
 process.stdout.write('\n=== Summary: ' + successCount + ' succeeded, ' + failCount + ' failed ===\n');
+
+// Cleanup stubs
+process.stdout.write('\nCleaning up stub dependencies...\n');
+// (optional)
+process.stdout.write('Done.\n');
