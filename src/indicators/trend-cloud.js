@@ -8,7 +8,7 @@
  * trendCloud strategy in BacktestEngine.
  */
 
-const CLOUD_PERIOD = 20;
+const CLOUD_PERIOD = 325;
 
 /**
  * Highest high over a candle range [start, end).
@@ -87,20 +87,34 @@ function getCloudValues(candles) {
 }
 
 /**
- * Determine cloud bias from Senkou Span A vs B relationship.
+ * Determine cloud bias.
+ * When called with a single candles array, computes cloud values internally.
+ * When called with two numbers, compares them directly.
  * - BULLISH when spanA > spanB (cloud is "green" — upward momentum)
  * - BEARISH when spanB > spanA (cloud is "red" — downward momentum)
- * - NEUTRAL when equal
- * @param {number} spanA
- * @param {number} spanB
+ * - NEUTRAL when equal or indeterminate
+ * @param {Array|number} spanA_or_candles
+ * @param {number} [spanB]
  * @returns {'BULLISH'|'BEARISH'|'NEUTRAL'}
  */
-function determineBias(spanA, spanB) {
-  if (spanA === null || spanB === null || spanA === undefined || spanB === undefined) {
+function determineBias(spanA_or_candles, spanB) {
+  let a, b;
+  if (spanB === undefined && Array.isArray(spanA_or_candles)) {
+    const cloud = getCloudValues(spanA_or_candles);
+    if (!cloud || !cloud.spanA || !cloud.spanB) return 'NEUTRAL';
+    const lastA = cloud.spanA[cloud.spanA.length - 1];
+    const lastB = cloud.spanB[cloud.spanB.length - 1];
+    a = lastA;
+    b = lastB;
+  } else {
+    a = spanA_or_candles;
+    b = spanB;
+  }
+  if (a === null || b === null || a === undefined || b === undefined) {
     return 'NEUTRAL';
   }
-  if (spanA > spanB) return 'BULLISH';
-  if (spanB > spanA) return 'BEARISH';
+  if (a > b) return 'BULLISH';
+  if (b > a) return 'BEARISH';
   return 'NEUTRAL';
 }
 

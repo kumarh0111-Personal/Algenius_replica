@@ -10,7 +10,17 @@
 
 import { calcATRSeries } from './atr.js';
 
-const ATR_FACTORS = { PERIOD: 10, MULTIPLIER: 3 };
+const SUPERTREND_DEFAULTS = { PERIOD: 10, MULTIPLIER: 3 };
+
+const ATR_FACTORS = {
+  "1min": 10.35,
+  "5min": 10.35,
+  "15min": 10.35,
+  "30min": 8.35,
+  "1h": 7.35,
+  "4h": 4.35,
+  "1day": 1.75
+};
 
 /**
  * Compute the latest SuperTrend value only.
@@ -85,4 +95,4 @@ function calcSupertrendSeries(candles, period = 10, multiplier = 3) {
   return result;
 }
 
-export { calcSupertrend, calcSupertrendSeries, ATR_FACTORS };
+export { calcSupertrend, calcSupertrendSeries, SUPERTREND_DEFAULTS, ATR_FACTORS };
