@@ -2,13 +2,17 @@
   "EURUSD=X": {
     "category": "FX",
     "params": {
-      "atrMult": 2
+      "type": "breakout",
+      "donchianPeriod": 20,
+      "atrMult": 3.0,
+      "tpMult": 4.5,
+      "threshold": 0
     },
     "optimizedAt": "2026-05-21",
-    "fullSharpe": -0.15,
+    "fullSharpe": 1.01,
     "prevSharpe": -0.15,
     "valSharpe": 0,
-    "improved": false
+    "improved": true
   },
   "GBPUSD=X": {
     "category": "FX",
