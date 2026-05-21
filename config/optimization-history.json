@@ -1,0 +1,220 @@
+{
+  "runs": [
+    {
+      "date": "2026-05-21",
+      "symbols": {
+        "EURUSD=X": {
+          "prevParams": {
+            "atrMult": 2,
+            "tpMult": 3
+          },
+          "newParams": {
+            "atrMult": 2
+          },
+          "prevFullSharpe": -0.15,
+          "newFullSharpe": -0.15,
+          "valSharpe": 0,
+          "valTrades": 0,
+          "neededReopt": true,
+          "improved": false,
+          "fullWR": 50,
+          "trades": 4
+        },
+        "GBPUSD=X": {
+          "prevParams": {
+            "atrMult": 2,
+            "tpMult": 3
+          },
+          "newParams": {
+            "atrMult": 2.5
+          },
+          "prevFullSharpe": 0.48,
+          "newFullSharpe": 0.52,
+          "valSharpe": 0,
+          "valTrades": 0,
+          "neededReopt": true,
+          "improved": false,
+          "fullWR": 66.67,
+          "trades": 3
+        },
+        "USDJPY=X": {
+          "prevParams": {
+            "atrMult": 2,
+            "tpMult": 3
+          },
+          "newParams": {
+            "atrMult": 2
+          },
+          "prevFullSharpe": 0.58,
+          "newFullSharpe": 0.58,
+          "valSharpe": 0,
+          "valTrades": 0,
+          "neededReopt": true,
+          "improved": false,
+          "fullWR": 50,
+          "trades": 4
+        },
+        "AUDUSD=X": {
+          "prevParams": {
+            "atrMult": 2,
+            "tpMult": 3
+          },
+          "newParams": {
+            "atrMult": 1
+          },
+          "prevFullSharpe": -0.02,
+          "newFullSharpe": 0.37,
+          "valSharpe": 0,
+          "valTrades": 0,
+          "neededReopt": true,
+          "improved": true,
+          "fullWR": 50,
+          "trades": 4
+        },
+        "GC=F": {
+          "prevParams": {
+            "donchianPeriod": 20,
+            "atrMult": 2.5,
+            "tpMult": 3.75
+          },
+          "newParams": {
+            "donchianPeriod": 20,
+            "atrMult": 1.5,
+            "tpMult": 3.75
+          },
+          "prevFullSharpe": 1.69,
+          "newFullSharpe": 1.85,
+          "valSharpe": -3.69,
+          "valTrades": 2,
+          "neededReopt": true,
+          "improved": true,
+          "fullWR": 70,
+          "trades": 10
+        },
+        "SI=F": {
+          "prevParams": {
+            "donchianPeriod": 20,
+            "atrMult": 2.5,
+            "tpMult": 3.75
+          },
+          "newParams": {
+            "donchianPeriod": 30,
+            "atrMult": 3,
+            "tpMult": 3.75
+          },
+          "prevFullSharpe": 0.84,
+          "newFullSharpe": 1.59,
+          "valSharpe": -1.97,
+          "valTrades": 2,
+          "neededReopt": true,
+          "improved": true,
+          "fullWR": 60,
+          "trades": 10
+        },
+        "CL=F": {
+          "prevParams": {
+            "donchianPeriod": 15,
+            "atrMult": 2,
+            "tpMult": 3
+          },
+          "newParams": {
+            "donchianPeriod": 20,
+            "atrMult": 2,
+            "tpMult": 3
+          },
+          "prevFullSharpe": 1.57,
+          "newFullSharpe": 1.64,
+          "valSharpe": 0,
+          "valTrades": 0,
+          "neededReopt": true,
+          "improved": true,
+          "fullWR": 61.54,
+          "trades": 13
+        },
+        "NG=F": {
+          "prevParams": {
+            "donchianPeriod": 15,
+            "atrMult": 2,
+            "tpMult": 3
+          },
+          "newParams": {
+            "donchianPeriod": 15,
+            "atrMult": 1.5,
+            "tpMult": 3
+          },
+          "prevFullSharpe": 1.18,
+          "newFullSharpe": 1.28,
+          "valSharpe": 2.56,
+          "valTrades": 2,
+          "neededReopt": true,
+          "improved": true,
+          "fullWR": 72.22,
+          "trades": 18
+        },
+        "^GSPC": {
+          "prevParams": {
+            "fast": 9,
+            "slow": 21,
+            "atrMult": 2,
+            "tpMult": 3
+          },
+          "newParams": {
+            "fast": 9,
+            "slow": 21,
+            "atrMult": 2.5
+          },
+          "prevFullSharpe": 0.6,
+          "newFullSharpe": 1.45,
+          "valSharpe": 4.46,
+          "valTrades": 1,
+          "neededReopt": true,
+          "improved": true,
+          "fullWR": 66.67,
+          "trades": 9
+        },
+        "^IXIC": {
+          "prevParams": {
+            "fast": 9,
+            "slow": 21,
+            "atrMult": 2,
+            "tpMult": 3
+          },
+          "newParams": {
+            "fast": 5,
+            "slow": 13,
+            "atrMult": 1.5
+          },
+          "prevFullSharpe": 0.44,
+          "newFullSharpe": 0.52,
+          "valSharpe": 4.12,
+          "valTrades": 1,
+          "neededReopt": true,
+          "improved": true,
+          "fullWR": 29.17,
+          "trades": 24
+        },
+        "^DJI": {
+          "prevParams": {
+            "fast": 9,
+            "slow": 21,
+            "atrMult": 2,
+            "tpMult": 3
+          },
+          "newParams": {
+            "fast": 5,
+            "slow": 13,
+            "atrMult": 1.5
+          },
+          "prevFullSharpe": 0.85,
+          "newFullSharpe": 1.69,
+          "valSharpe": 2.26,
+          "valTrades": 1,
+          "neededReopt": true,
+          "improved": true,
+          "fullWR": 55.56,
+          "trades": 18
+        }
+      }
+    }
+  ]
+}

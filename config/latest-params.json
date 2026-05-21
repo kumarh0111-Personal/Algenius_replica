@@ -1,0 +1,137 @@
+{
+  "EURUSD=X": {
+    "category": "FX",
+    "params": {
+      "atrMult": 2
+    },
+    "optimizedAt": "2026-05-21",
+    "fullSharpe": -0.15,
+    "prevSharpe": -0.15,
+    "valSharpe": 0,
+    "improved": false
+  },
+  "GBPUSD=X": {
+    "category": "FX",
+    "params": {
+      "atrMult": 2.5
+    },
+    "optimizedAt": "2026-05-21",
+    "fullSharpe": 0.52,
+    "prevSharpe": 0.48,
+    "valSharpe": 0,
+    "improved": false
+  },
+  "USDJPY=X": {
+    "category": "FX",
+    "params": {
+      "atrMult": 2
+    },
+    "optimizedAt": "2026-05-21",
+    "fullSharpe": 0.58,
+    "prevSharpe": 0.58,
+    "valSharpe": 0,
+    "improved": false
+  },
+  "AUDUSD=X": {
+    "category": "FX",
+    "params": {
+      "atrMult": 1
+    },
+    "optimizedAt": "2026-05-21",
+    "fullSharpe": 0.37,
+    "prevSharpe": -0.02,
+    "valSharpe": 0,
+    "improved": true
+  },
+  "GC=F": {
+    "category": "METAL",
+    "params": {
+      "donchianPeriod": 20,
+      "atrMult": 1.5,
+      "tpMult": 3.75
+    },
+    "optimizedAt": "2026-05-21",
+    "fullSharpe": 1.85,
+    "prevSharpe": 1.69,
+    "valSharpe": -3.69,
+    "improved": true
+  },
+  "SI=F": {
+    "category": "METAL",
+    "params": {
+      "donchianPeriod": 30,
+      "atrMult": 3,
+      "tpMult": 3.75
+    },
+    "optimizedAt": "2026-05-21",
+    "fullSharpe": 1.59,
+    "prevSharpe": 0.84,
+    "valSharpe": -1.97,
+    "improved": true
+  },
+  "CL=F": {
+    "category": "COMM",
+    "params": {
+      "donchianPeriod": 20,
+      "atrMult": 2,
+      "tpMult": 3
+    },
+    "optimizedAt": "2026-05-21",
+    "fullSharpe": 1.64,
+    "prevSharpe": 1.57,
+    "valSharpe": 0,
+    "improved": true
+  },
+  "NG=F": {
+    "category": "COMM",
+    "params": {
+      "donchianPeriod": 15,
+      "atrMult": 1.5,
+      "tpMult": 3
+    },
+    "optimizedAt": "2026-05-21",
+    "fullSharpe": 1.28,
+    "prevSharpe": 1.18,
+    "valSharpe": 2.56,
+    "improved": true
+  },
+  "^GSPC": {
+    "category": "INDEX",
+    "params": {
+      "fast": 9,
+      "slow": 21,
+      "atrMult": 2.5
+    },
+    "optimizedAt": "2026-05-21",
+    "fullSharpe": 1.45,
+    "prevSharpe": 0.6,
+    "valSharpe": 4.46,
+    "improved": true
+  },
+  "^IXIC": {
+    "category": "INDEX",
+    "params": {
+      "fast": 5,
+      "slow": 13,
+      "atrMult": 1.5
+    },
+    "optimizedAt": "2026-05-21",
+    "fullSharpe": 0.52,
+    "prevSharpe": 0.44,
+    "valSharpe": 4.12,
+    "improved": true
+  },
+  "^DJI": {
+    "category": "INDEX",
+    "params": {
+      "fast": 5,
+      "slow": 13,
+      "atrMult": 1.5
+    },
+    "optimizedAt": "2026-05-21",
+    "fullSharpe": 1.69,
+    "prevSharpe": 0.85,
+    "valSharpe": 2.26,
+    "improved": true
+  }
+}

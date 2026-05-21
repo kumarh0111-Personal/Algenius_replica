@@ -4,8 +4,8 @@
  * Live Trader — Cron-compatible trading entry point
  *
  * Usage:
- *   # Single tick run (for cron):
- *   node live-trader.js --strategy smartSignals --instrument EUR_USD --granularity H1
+ *   # Single tick run (for cron) — auto picks the best strategy for the instrument:
+   *   node live-trader.js --strategy auto --instrument EUR_USD --granularity H1
  *
  *   # With custom params:
  *   node live-trader.js --strategy supertrend --instrument XAU_USD --granularity M15 \
@@ -22,9 +22,11 @@
 
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readFileSync, existsSync } from 'node:fs';
 import { OandaClient } from './src/oanda/oanda-client.js';
 import { TradingRunner } from './src/trading/trading-runner.js';
 import { TradeStore } from './src/trading/trade-store.js';
+import { buildStrategy, detectCategory } from './src/strategies/optimized-trader.js';
 
 // Auto-load .env if present
 import dotenv from 'dotenv';
@@ -39,7 +41,7 @@ Usage:
   node live-trader.js --strategy <name> --instrument <pair> [options]
 
 Options:
-  --strategy <name>     Strategy: emaCrossover, supertrend, trendCloud, breakout, smartSignals (required)
+  --strategy <name>     Strategy: auto (recommended), emaCrossover, supertrend, trendCloud, breakout, smartSignals (required)
   --instrument <pair>   OANDA instrument e.g. EUR_USD, XAU_USD, US30_USD (required)
   --granularity <tf>    Timeframe: M1, M5, M15, M30, H1, H4, D (default: H1)
   --params <json>       Strategy parameters JSON (default: {})
@@ -90,6 +92,41 @@ function parseArgs() {
   opts.params = opts.params ? JSON.parse(opts.params) : {};
 
   return opts;
+}
+
+/**
+ * Convert OANDA instrument to category — used by --strategy auto
+ */
+function resolveCategory(oandaInstrument) {
+  const fx = ['EUR_', 'GBP_', 'USD_', 'JPY_', 'AUD_', 'CAD_', 'NZD_', 'CHF_'];
+  if (oandaInstrument.startsWith('XAU_') || oandaInstrument.startsWith('XAG_')) return 'METAL';
+  if (oandaInstrument.endsWith('_USD') && !fx.some(f => oandaInstrument.startsWith(f))) {
+    if (oandaInstrument.startsWith('US30') || oandaInstrument.startsWith('SPX') || oandaInstrument.startsWith('NAS')) return 'INDEX';
+    if (oandaInstrument.startsWith('CL_') || oandaInstrument.startsWith('NG_') || oandaInstrument.startsWith('HO_')) return 'COMM';
+    if (oandaInstrument.startsWith('BTC') || oandaInstrument.startsWith('ETH')) return 'FX';
+  }
+  if (fx.some(f => oandaInstrument.startsWith(f))) return 'FX';
+  return 'INDEX';
+}
+
+/**
+ * Build the OANDA -> Yahoo symbol mapping for config lookup.
+ */
+const OANDA_TO_YAHOO = {
+  'EUR_USD': 'EURUSD=X', 'GBP_USD': 'GBPUSD=X', 'USD_JPY': 'USDJPY=X',
+  'AUD_USD': 'AUDUSD=X', 'NZD_USD': 'NZDUSD=X', 'USD_CAD': 'USDCAD=X',
+  'USD_CHF': 'USDCHF=X', 'XAU_USD': 'GC=F', 'XAG_USD': 'SI=F',
+  'CL_USD': 'CL=F', 'NG_USD': 'NG=F', 'US30_USD': '^DJI',
+  'SPX500_USD': '^GSPC', 'NAS100_USD': '^IXIC',
+};
+
+function loadOptimizedParams(oandaInstrument) {
+  if (!existsSync('./config/latest-params.json')) return null;
+  try {
+    const config = JSON.parse(readFileSync('./config/latest-params.json', 'utf8'));
+    const yahooKey = OANDA_TO_YAHOO[oandaInstrument] || oandaInstrument.replace(/_/g, '');
+    return config[yahooKey]?.params || null;
+  } catch { return null; }
 }
 
 function validateEnv() {
@@ -143,12 +180,25 @@ async function main() {
   console.log(`  State file: ${opts.state}`);
   console.log(`  Previous trades: ${store.totalTrades}\n`);
 
+  // Resolve --strategy auto to category-aware optimized strategy
+  let strategy = opts.strategy;
+  let strategyParams = opts.params;
+
+  if (opts.strategy === 'auto') {
+    const category = resolveCategory(opts.instrument);
+    const savedParams = loadOptimizedParams(opts.instrument);
+    strategyParams = savedParams || strategyParams;
+    strategy = buildStrategy(category, strategyParams);
+    console.log(`  Auto-resolved: ${opts.instrument} → ${category}`);
+    if (savedParams) console.log(`  Using optimised params: ${JSON.stringify(savedParams)}`);
+  }
+
   // Build the trading runner
   const runner = new TradingRunner({
     oandaClient: oanda,
     instrument: opts.instrument,
-    strategy: opts.strategy,
-    strategyParams: opts.params,
+    strategy,
+    strategyParams,
     granularity: opts.granularity,
     tradeStore: store,
     config: opts.dryRun ? { dryRun: true } : {}
