@@ -24,6 +24,10 @@ dotenv.config();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+function nowIso() {
+  return new Date().toISOString();
+}
+
 function validateEnv() {
   const token = process.env.OANDA_TOKEN;
   const accountId = process.env.OANDA_ACCOUNT_ID;
@@ -60,6 +64,7 @@ async function main() {
     process.exit(1);
   }
 
+  console.log(`[${nowIso()}] Batch start`);
   console.log(`╔══════════════════════════════════════════════╗`);
   console.log(`║  TrendAura Batch Tracker`);
   console.log(`║  Profiles: ${toRun.length} | ${dryRun ? 'DRY RUN' : 'LIVE'}${forceRun ? ' | FORCE' : ''}`);
@@ -70,7 +75,8 @@ async function main() {
   // Verify once
   try {
     const info = await oanda.getAccountInfo();
-    console.log(`  Account: ${info.balance} ${info.currency} | Trades: ${info.openTradeCount}\n`);
+    console.log(`  Account: ${info.balance} ${info.currency} | Trades: ${info.openTradeCount}`);
+    console.log(`  Time: ${nowIso()}\n`);
   } catch (err) {
     console.error(`  OANDA connection failed: ${err.message}`);
     process.exit(1);
@@ -79,6 +85,7 @@ async function main() {
   for (const profile of toRun) {
     const label = `${profile.instrument} ${profile.granularity} ${profile.strategy}`;
     console.log(`  ─── ${label} ───`);
+    console.log(`  Time: ${nowIso()}`);
 
     try {
       const safeName = `${profile.instrument}_${profile.granularity}_${profile.strategy}`.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -119,6 +126,7 @@ async function main() {
   console.log(`╔══════════════════════════════════════════════╗`);
   console.log(`║  Batch complete`);
   console.log(`╚══════════════════════════════════════════════╝`);
+  console.log(`[${nowIso()}] Batch end`);
 }
 
 main().catch(err => { console.error(err.message); process.exit(1); });
